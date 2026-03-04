@@ -1,5 +1,5 @@
 export function requireAdmin(req) {
-  const token = (process.env.ADMIN_TOKEN || "").trim();
+  const token = ((process.env.ADMIN_TOKEN || process.env.ADMIN_TOKEN) || "").trim();
   if (!token) {
     return { ok: false, status: 500, message: "ADMIN_TOKEN is not set on Netlify." };
   }
