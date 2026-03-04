@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Better Start</title>
+  <meta name="description" content="A live-feeling, positive video feed." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Better Start</div>
+    <div class="topbarRight">
+      <button id="soundBtn" class="pill" aria-pressed="false" title="Toggle sound">Muted</button>
+    </div>
+  </header>
+
+  <main id="feed" class="feed" aria-label="Video feed">
+    <div class="loading">Loading today’s feed…</div>
+  </main>
+
+  <!-- Channel bumper -->
+  <div id="bumper" class="bumper" aria-hidden="false">
+    <div class="bumperInner">
+      <div class="bumperLogo">Better Start</div>
+      <div class="bumperTag">Dropping into today’s channel…</div>
+      <div class="bumperPulse" aria-hidden="true"></div>
+      <div class="bumperHint">Autoplay starts muted</div>
+    </div>
+  </div>
+
+  <!-- Next up overlay -->
+  <div id="nextUp" class="nextUp" aria-hidden="true">
+    <div class="nextUpInner">
+      <div class="nextUpSmall">Next up</div>
+      <div id="nextUpTitle" class="nextUpTitle"></div>
+      <div id="nextUpChannel" class="nextUpChannel"></div>
+    </div>
+  </div>
+
+  <!-- Single reusable YouTube player mount -->
+  <div id="playerMount" class="playerMount" aria-hidden="true">
+    <div id="ytplayer"></div>
+  </div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="app.js"></script>
+</body>
+</html>

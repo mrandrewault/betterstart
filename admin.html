@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Better Start Admin</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Better Start Admin</div>
+    <div class="topbarRight">
+      <button id="logout" class="pill">Log out</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h1>Approve new channels</h1>
+      <p class="muted">
+        This page shows “candidates” discovered weekly. Approve the good ones and they’ll be added to your station sources.
+      </p>
+
+      <div class="row">
+        <label class="label">Admin token</label>
+        <input id="token" class="input" type="password" placeholder="Paste ADMIN_TOKEN here" />
+        <button id="saveToken" class="pill">Save token</button>
+        <button id="refresh" class="pill">Refresh</button>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h2>Candidates</h2>
+          <div id="candidates" class="list"></div>
+        </div>
+        <div class="panel">
+          <h2>Approved sources</h2>
+          <div id="sources" class="list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tokenEl = document.getElementById("token");
+    const saveBtn = document.getElementById("saveToken");
+    const refreshBtn = document.getElementById("refresh");
+    const logoutBtn = document.getElementById("logout");
+    const candidatesEl = document.getElementById("candidates");
+    const sourcesEl = document.getElementById("sources");
+
+    function getToken() {
+      return localStorage.getItem("betterstart_admin_token") || "";
+    }
+    function setToken(t) {
+      localStorage.setItem("betterstart_admin_token", t);
+    }
+
+    tokenEl.value = getToken();
+
+    async function api(path, opts = {}) {
+      const t = getToken();
+      const headers = Object.assign({}, opts.headers || {});
+      if (t) headers["authorization"] = "Bearer " + t;
+      const res = await fetch(path, Object.assign({}, opts, { headers }));
+      if (!res.ok) throw new Error(path + " failed: " + res.status);
+      return res.json();
+    }
+
+    function esc(s) {
+      return String(s || "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
+    }
+
+    function renderCandidates(items) {
+      if (!items.length) {
+        candidatesEl.innerHTML = '<div class="muted">No candidates right now.</div>';
+        return;
+      }
+      candidatesEl.innerHTML = items.map(c => {
+        const vid = c.sampleVideoId ? `https://www.youtube.com/watch?v=${c.sampleVideoId}` : "";
+        const about = c.description ? esc(c.description.slice(0, 200)) : "";
+        return `
+          <div class="item">
+            <div class="itemTop">
+              <div>
+                <div class="title">${esc(c.name)}</div>
+                <div class="sub">${esc(c.channelId)}</div>
+                <div class="sub">Found via: ${esc(c.query || "—")}</div>
+              </div>
+              <div class="actions">
+                <select class="select" data-cat="${esc(c.channelId)}">
+                  <option value="human">human</option>
+                  <option value="music">music</option>
+                  <option value="art">art</option>
+                  <option value="animals">animals</option>
+                </select>
+                <button class="pill" data-approve="${esc(c.channelId)}">Approve</button>
+                <button class="pill danger" data-deny="${esc(c.channelId)}">Deny</button>
+              </div>
+            </div>
+            ${about ? `<div class="desc">${about}</div>` : ""}
+            ${vid ? `<div class="links"><a href="${vid}" target="_blank" rel="noreferrer">Sample video</a></div>` : ""}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderSources(items) {
+      if (!items.length) {
+        sourcesEl.innerHTML = '<div class="muted">No approved sources yet.</div>';
+        return;
+      }
+      sourcesEl.innerHTML = items.map(s => {
+        const rss = s.type === "playlist"
+          ? `https://www.youtube.com/feeds/videos.xml?playlist_id=${encodeURIComponent(s.id)}`
+          : `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(s.id)}`;
+        return `
+          <div class="item">
+            <div class="title">${esc(s.name)}</div>
+            <div class="sub">${esc(s.category)} • ${esc(s.type)} • ${esc(s.id)}</div>
+            <div class="links"><a href="${rss}" target="_blank" rel="noreferrer">RSS</a></div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function refreshAll() {
+      candidatesEl.innerHTML = '<div class="muted">Loading…</div>';
+      sourcesEl.innerHTML = '<div class="muted">Loading…</div>';
+      const [cands, srcs] = await Promise.all([
+        api("/.netlify/functions/candidates"),
+        api("/.netlify/functions/sources"),
+      ]);
+      renderCandidates(cands.items || []);
+      renderSources(srcs.items || []);
+    }
+
+    saveBtn.addEventListener("click", () => {
+      setToken(tokenEl.value.trim());
+      refreshAll().catch(err => alert(err.message));
+    });
+
+    refreshBtn.addEventListener("click", () => {
+      refreshAll().catch(err => alert(err.message));
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("betterstart_admin_token");
+      tokenEl.value = "";
+      candidatesEl.innerHTML = '<div class="muted">Logged out.</div>';
+      sourcesEl.innerHTML = "";
+    });
+
+    document.body.addEventListener("click", async (e) => {
+      const a = e.target.getAttribute("data-approve");
+      const d = e.target.getAttribute("data-deny");
+      if (!a && !d) return;
+
+      const channelId = a || d;
+      const sel = document.querySelector(`select[data-cat="${CSS.escape(channelId)}"]`);
+      const category = sel ? sel.value : "human";
+
+      try {
+        if (a) {
+          await api("/.netlify/functions/approve", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ channelId, category }),
+          });
+        } else {
+          await api("/.netlify/functions/deny", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ channelId }),
+          });
+        }
+        await refreshAll();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    // Auto-refresh if token exists
+    if (getToken()) refreshAll().catch(() => {});
+  </script>
+</body>
+</html>
