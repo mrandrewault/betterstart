@@ -171,11 +171,13 @@ async function fetchWithTimeout(url, ms) {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
   try {
-    const res = await fetch(url, { signal: ctrl.signal, headers: { "user-agent": "betterstart-bot" } });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch {
-    return null;
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { "accept": "application/xml,text/xml;q=0.9,*/*;q=0.8" },
+    });
+    const text = await res.text().catch(() => "");
+    if (!res.ok) throw new Error(`RSS fetch failed ${res.status} for ${url} :: ${text.slice(0, 180)}`);
+    return text;
   } finally {
     clearTimeout(id);
   }
