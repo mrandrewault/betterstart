@@ -152,7 +152,7 @@ function parseYouTubeRss(xml) {
 }
 
 function pickTag(block, tag) {
-  const re = new RegExp(`<${tag}>([\s\S]*?)<\/${tag}>`, "i");
+const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
   const m = block.match(re);
   if (!m) return "";
   return decodeXml(m[1].trim());
