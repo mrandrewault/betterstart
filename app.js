@@ -1,3 +1,22 @@
+function ensureIframeAttrs(iframe) {
+  if (!iframe) return;
+  iframe.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
+  iframe.setAttribute("allowfullscreen", "true");
+  iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+}
+
+function armPlaybackFailover(nextFn) {
+  clearTimeout(window.__ytFailTimer);
+  window.__ytFailTimer = setTimeout(() => {
+    try {
+      if (typeof nextFn === "function") nextFn();
+      else location.reload();
+    } catch (e) {
+      try { location.reload(); } catch(_) {}
+    }
+  }, 3500);
+}
+
 const FEED = document.getElementById("feed");
 const SOUND_BTN = document.getElementById("soundBtn");
 const PLAYER_MOUNT = document.getElementById("playerMount");

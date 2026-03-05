@@ -98,28 +98,23 @@ export async function buildDailyPlaylist({ store, day, size = 18 }) {
     picked.push(...all.slice(0, size - picked.length));
   }
 
-let final = seededShuffle(picked, hashString(day)).slice(0, size);
+  let final = seededShuffle(picked, hashString(day)).slice(0, size);
 
-// Filter videos that can't be embedded
-if (process.env.YOUTUBE_API_KEY && final.length) {
+  // Filter out videos that cannot be embedded (prevents YouTube Playback ID errors)
   try {
-    const ids = final.map(v => v.videoId).join(",");
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=status&id=${ids}&key=${process.env.YOUTUBE_API_KEY}`;
-
-    const res = await fetch(url);
-    const data = await res.json();
-
-    const embeddable = new Set(
-      (data.items || [])
-        .filter(v => v.status && v.status.embeddable)
-        .map(v => v.id)
-    );
-
-    final = final.filter(v => embeddable.has(v.videoId));
+    const apiKey = (process.env.YOUTUBE_API_KEY || '').trim();
+    if (apiKey && final.length) {
+      const ids = final.map(v => v.videoId).filter(Boolean).join(',');
+      const url = `https://www.googleapis.com/youtube/v3/videos?part=status&id=${ids}&key=${apiKey}`;
+      const r = await fetch(url);
+      const data = await r.json().catch(() => ({}));
+      const ok = new Set((data.items||[]).filter(it => it?.status?.embeddable).map(it => it.id));
+      final = final.filter(v => ok.has(v.videoId));
+    }
   } catch (e) {
-    console.log("Embed filter failed", e);
+    // ignore
   }
-}
+
 
   // Persist seen
   for (const p of final) seen.add(p.videoId);
@@ -173,7 +168,7 @@ function parseYouTubeRss(xml) {
 }
 
 function pickTag(block, tag) {
-const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
+  const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
   const m = block.match(re);
   if (!m) return "";
   return decodeXml(m[1].trim());
@@ -203,6 +198,7 @@ async function fetchWithTimeout(url, ms) {
     clearTimeout(id);
   }
 }
+
 
 function hashString(str) {
   let h = 2166136261;

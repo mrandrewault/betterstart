@@ -32,3 +32,14 @@ You MUST set:
 ## Notes
 - Discovery uses YouTube Data API search queries. It’s intentionally conservative and still needs your human taste check.
 - RSS pulling is used for the actual daily playlist because it’s cheap and reliable.
+
+
+## v3.2 hotfix
+- generator fetch no longer sets a custom user-agent (YouTube can block it). RSS failures now throw with status so /refresh shows a real message.
+
+
+## v3.5 full package
+- Fix XML parsing
+- Filter embeddable videos via YouTube Data API
+- Improve embeds (youtube-nocookie + permissions + origin)
+- Auto-skip failover
