@@ -98,7 +98,28 @@ export async function buildDailyPlaylist({ store, day, size = 18 }) {
     picked.push(...all.slice(0, size - picked.length));
   }
 
-  const final = seededShuffle(picked, hashString(day)).slice(0, size);
+let final = seededShuffle(picked, hashString(day)).slice(0, size);
+
+// Filter videos that can't be embedded
+if (process.env.YOUTUBE_API_KEY && final.length) {
+  try {
+    const ids = final.map(v => v.videoId).join(",");
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=status&id=${ids}&key=${process.env.YOUTUBE_API_KEY}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const embeddable = new Set(
+      (data.items || [])
+        .filter(v => v.status && v.status.embeddable)
+        .map(v => v.id)
+    );
+
+    final = final.filter(v => embeddable.has(v.videoId));
+  } catch (e) {
+    console.log("Embed filter failed", e);
+  }
+}
 
   // Persist seen
   for (const p of final) seen.add(p.videoId);
