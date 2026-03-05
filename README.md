@@ -34,12 +34,5 @@ You MUST set:
 - RSS pulling is used for the actual daily playlist because it’s cheap and reliable.
 
 
-## v3.2 hotfix
-- generator fetch no longer sets a custom user-agent (YouTube can block it). RSS failures now throw with status so /refresh shows a real message.
-
-
-## v3.5 full package
-- Fix XML parsing
-- Filter embeddable videos via YouTube Data API
-- Improve embeds (youtube-nocookie + permissions + origin)
-- Auto-skip failover
+## v3.3 hotfix
+- Playlist generation switched from YouTube RSS to YouTube Data API (more reliable on serverless). Requires YOUTUBE_API_KEY.

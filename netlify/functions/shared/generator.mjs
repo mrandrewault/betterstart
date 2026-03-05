@@ -98,25 +98,37 @@ export async function buildDailyPlaylist({ store, day, size = 18 }) {
     picked.push(...all.slice(0, size - picked.length));
   }
 
-  let final = seededShuffle(picked, hashString(day)).slice(0, size);
+// Pick a larger candidate pool, then filter to embed-safe videos when possible.
+const candidatePool = seededShuffle(picked, hashString(day)).slice(0, Math.max(size * 4, size));
+let final = candidatePool;
 
-  // Filter out videos that cannot be embedded (prevents YouTube Playback ID errors)
+// Optional: use YouTube Data API to remove videos that can't be embedded (and to avoid Shorts).
+if (process.env.YOUTUBE_API_KEY && final.length) {
   try {
-    const apiKey = (process.env.YOUTUBE_API_KEY || '').trim();
-    if (apiKey && final.length) {
-      const ids = final.map(v => v.videoId).filter(Boolean).join(',');
-      const url = `https://www.googleapis.com/youtube/v3/videos?part=status&id=${ids}&key=${apiKey}`;
-      const r = await fetch(url);
-      const data = await r.json().catch(() => ({}));
-      const ok = new Set((data.items||[]).filter(it => it?.status?.embeddable).map(it => it.id));
-      final = final.filter(v => ok.has(v.videoId));
+    const ids = final.map(v => v.videoId).slice(0, 50).join(",");
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=status,contentDetails&id=${ids}&key=${process.env.YOUTUBE_API_KEY}`;
+    const data = (await fetchJsonWithTimeout(url, 12000)) || {};
+    const ok = new Set();
+
+    for (const it of (data.items || [])) {
+      const emb = !!it?.status?.embeddable;
+      const dur = isoDurationToSeconds(it?.contentDetails?.duration) || 0;
+      // Skip Shorts-ish durations (<61s) to reduce embed failures & keep “TV” feel.
+      if (emb && dur >= 61) ok.add(it.id);
     }
+
+    final = final.filter(v => ok.has(v.videoId));
   } catch (e) {
-    // ignore
+    // If API fails, fall back to RSS-derived list (still works, may include some non-embeddables).
+    console.log("Embed filter failed:", e?.message || e);
+    final = candidatePool;
   }
+}
 
+final = final.slice(0, size);
 
-  // Persist seen
+// Persist seen
+
   for (const p of final) seen.add(p.videoId);
   const seenArr = Array.from(seen);
   const trimmed = seenArr.slice(Math.max(0, seenArr.length - 50000));
@@ -168,7 +180,7 @@ function parseYouTubeRss(xml) {
 }
 
 function pickTag(block, tag) {
-  const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
+  const re = new RegExp(`<${tag}>([\s\S]*?)<\/${tag}>`, "i");
   const m = block.match(re);
   if (!m) return "";
   return decodeXml(m[1].trim());
@@ -187,18 +199,33 @@ async function fetchWithTimeout(url, ms) {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), ms);
   try {
-    const res = await fetch(url, {
-      signal: ctrl.signal,
-      headers: { "accept": "application/xml,text/xml;q=0.9,*/*;q=0.8" },
-    });
-    const text = await res.text().catch(() => "");
-    if (!res.ok) throw new Error(`RSS fetch failed ${res.status} for ${url} :: ${text.slice(0, 180)}`);
-    return text;
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
   } finally {
     clearTimeout(id);
   }
 }
 
+function fetchJsonWithTimeout(url, ms) {
+  return fetchWithTimeout(url, ms).then((txt) => {
+    if (!txt) return null;
+    try { return JSON.parse(txt); } catch { return null; }
+  });
+}
+
+function isoDurationToSeconds(iso) {
+  // ISO 8601 duration, e.g. PT4M13S
+  if (!iso || typeof iso !== "string") return 0;
+  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return 0;
+  const h = parseInt(m[1] || "0", 10);
+  const mi = parseInt(m[2] || "0", 10);
+  const s = parseInt(m[3] || "0", 10);
+  return h * 3600 + mi * 60 + s;
+}
 
 function hashString(str) {
   let h = 2166136261;
