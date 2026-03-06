@@ -163,6 +163,7 @@ function playCurrent(force=false){
           if (e.data === YT.PlayerState.PLAYING){
             clearTimeout(startTimer);
             startTimer = null;
+             showBumper(false);
           }
           // When ended, move on
           if (e.data === YT.PlayerState.ENDED){
