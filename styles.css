@@ -205,3 +205,15 @@ body{
 .nextUpSmall{font-size:12px;color:var(--muted);margin-bottom:6px}
 .nextUpTitle{font-size:14px;font-weight:700;line-height:1.2}
 .nextUpChannel{margin-top:4px;font-size:12px;color:var(--muted)}
+/* Force-hide bumper when JS marks it hidden */
+#bumper[aria-hidden="true"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+/* Make sure bumper shows when not hidden */
+#bumper[aria-hidden="false"] {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
