@@ -8,6 +8,8 @@ let isMuted = true;
 let skipTimer = null;
 
 const soundBtn = document.getElementById("soundBtn");
+const nextBtn = document.getElementById("nextBtn");
+const prevBtn = document.getElementById("prevBtn");
 const bumper = document.getElementById("bumper");
 const nextUp = document.getElementById("nextUp");
 const nextUpTitle = document.getElementById("nextUpTitle");
@@ -107,6 +109,13 @@ function nextVideo() {
   playCurrentVideo();
 }
 
+function prevVideo() {
+  if (!playlist.length) return;
+  clearSkipTimer();
+  currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+  playCurrentVideo();
+}
+
 window.onYouTubeIframeAPIReady = async function () {
   updateSoundButton();
 
@@ -164,3 +173,52 @@ if (soundBtn) {
     }
   });
 }
+
+if (nextBtn) {
+  nextBtn.addEventListener("click", () => {
+    nextVideo();
+  });
+}
+
+if (prevBtn) {
+  prevBtn.addEventListener("click", () => {
+    prevVideo();
+  });
+}
+
+// Swipe support
+let touchStartX = 0;
+let touchStartY = 0;
+let touchEndX = 0;
+let touchEndY = 0;
+
+document.addEventListener("touchstart", (e) => {
+  const touch = e.changedTouches[0];
+  touchStartX = touch.screenX;
+  touchStartY = touch.screenY;
+}, { passive: true });
+
+document.addEventListener("touchend", (e) => {
+  const touch = e.changedTouches[0];
+  touchEndX = touch.screenX;
+  touchEndY = touch.screenY;
+
+  const dx = touchEndX - touchStartX;
+  const dy = touchEndY - touchStartY;
+
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+  const threshold = 50;
+
+  // Vertical swipes
+  if (absY > absX) {
+    if (dy < -threshold) nextVideo();   // swipe up
+    if (dy > threshold) prevVideo();    // swipe down
+  }
+
+  // Horizontal swipes
+  if (absX > absY) {
+    if (dx < -threshold) nextVideo();   // swipe left
+    if (dx > threshold) prevVideo();    // swipe right
+  }
+}, { passive: true });
